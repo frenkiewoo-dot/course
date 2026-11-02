@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F7F2E9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Cours">
+<title>Cours</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F2E9;
+    --paper: #FCF9F3;
+    --shade: #F2ECE1;
+    --ink: #2F2A26;
+    --muted: #8C8278;
+    --faint: #B8AEA2;
+    --line: #E4DCCE;
+    --line-soft: #ECE5D9;
+    --accent: #7A8C68;
+    --now: #C27C64;
+    --serif: 'Cormorant Garamond', 'Times New Roman', serif;
+    --sans: 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--sans);
+    height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  input, select { font: inherit; color: inherit; }
+
+  main { flex: 1; min-height: 0; position: relative; }
+  .view { position: absolute; inset: 0; display: none; flex-direction: column; }
+  .view.active { display: flex; }
+
+  /* ── Top bar ── */
+  .topbar {
+    display: flex; align-items: center; gap: 4px;
+    padding: calc(var(--safe-t) + 14px) 12px 12px 8px;
+  }
+  .icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
+  .icon-btn:active { background: var(--shade); }
+  .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+  .range { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .range-text { font-family: var(--serif); font-weight: 600; font-size: 27px; letter-spacing: .2px; line-height: 1; white-space: nowrap; }
+  .range-sub { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--faint); margin-top: 5px; }
+  .spacer { flex: 1; }
+  .today-btn { font-family: var(--serif); font-style: italic; font-size: 19px; color: var(--accent); padding: 6px 10px; }
+
+  /* ── Week grid ── */
+  .days-head, .grid { display: grid; grid-template-columns: 42px repeat(7, 1fr); }
+  .days-head { background: var(--shade); border-bottom: 1px solid var(--line); padding: 10px 0 9px; }
+  .month { font-family: var(--serif); font-size: 15px; font-weight: 600; align-self: center; text-align: center; }
+  .dh { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .dh .dn { font-size: 12px; font-weight: 500; }
+  .dh .dd { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; padding: 1px 5px; border-radius: 9px; }
+  .dh.is-today .dn { color: var(--accent); }
+  .dh.is-today .dd { background: var(--accent); color: var(--paper); }
+
+  .grid-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; background: var(--paper); }
+  .grid { position: relative; }
+  .times { position: relative; background: var(--shade); }
+  .times span { position: absolute; left: 0; right: 0; text-align: center; font-size: 10.5px; color: var(--muted); transform: translateY(-50%); font-variant-numeric: tabular-nums; }
+  .cols { grid-column: 2 / -1; position: relative; display: grid; grid-template-columns: repeat(7, 1fr); }
+  .col { position: relative; min-width: 0; }
+  .col.alt { background: rgba(236, 229, 217, .45); }
+  .line { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--line); z-index: 1; pointer-events: none; }
+  .line.half { border-top: 1px dashed var(--line-soft); }
+  .now { position: absolute; left: -2px; right: 0; height: 0; border-top: 1.5px solid var(--now); z-index: 3; pointer-events: none; }
+  .now::before { content: ''; position: absolute; left: -1px; top: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--now); }
+
+  .ev {
+    position: absolute; z-index: 2; overflow: hidden; text-align: left;
+    background: var(--bg-c); color: var(--ink-c); border-radius: 5px;
+    border-left: 2.5px solid var(--bar-c);
+    padding: 4px 2px 3px 3.5px; display: flex; flex-direction: column; gap: 2px;
+    font-size: 9.5px; line-height: 1.2; -webkit-hyphens: auto; hyphens: auto;
+  }
+  .ev:active { filter: brightness(.96); }
+  .ev.exam { background: repeating-linear-gradient(135deg, var(--bg-c) 0 6px, var(--paper) 6px 9px); border: 1px solid var(--bar-c); border-left-width: 2.5px; }
+  .ev-t { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ev-k { opacity: .85; }
+  .ev-r { opacity: .7; font-size: 9px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+  /* ── List ── */
+  .page-head { padding: calc(var(--safe-t) + 18px) 20px 10px; display: flex; align-items: baseline; justify-content: space-between; }
+  .page-title { font-family: var(--serif); font-weight: 600; font-size: 32px; margin: 0; }
+  .text-btn { font-size: 13px; color: var(--accent); padding: 6px 2px; }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 24px; }
+  .wk-group { margin-top: 18px; }
+  .wk-h { display: flex; align-items: baseline; gap: 10px; padding: 0 4px 8px; border-bottom: 1px solid var(--line); }
+  .wk-n { font-size: 11px; letter-spacing: 2.2px; text-transform: uppercase; font-weight: 600; }
+  .wk-d { font-family: var(--serif); font-style: italic; font-size: 16px; color: var(--muted); }
+  .li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; width: 100%; text-align: left; padding: 12px 4px; border-bottom: 1px solid var(--line-soft); }
+  .li:active { background: var(--shade); }
+  .li-date { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+  .li-date span { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+  .li-date b { font-family: var(--serif); font-size: 24px; font-weight: 600; }
+  .li-body { border-left: 2.5px solid var(--bar-c); padding-left: 10px; min-width: 0; }
+  .li-title { font-weight: 600; font-size: 14.5px; }
+  .li-meta { font-size: 12.5px; color: var(--ink); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .li-loc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .empty { text-align: center; color: var(--muted); font-family: var(--serif); font-style: italic; font-size: 18px; margin-top: 60px; }
+
+  /* ── Settings ── */
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 16px; }
+  .card h3 { margin: 0 0 4px; font-family: var(--serif); font-size: 21px; font-weight: 600; }
+  .card p { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .grp { padding: 10px 0; border-top: 1px solid var(--line-soft); }
+  .grp:first-of-type { border-top: 0; }
+  .grp-name { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bar-c); flex: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+  .chip { font-size: 12.5px; padding: 6px 13px; border-radius: 16px; border: 1px solid var(--bar-c); background: var(--bg-c); color: var(--ink-c); }
+  .chip.off { background: transparent; color: var(--faint); border-color: var(--line); text-decoration: line-through; }
+  .row-btn { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 12px 0; font-size: 14px; border-top: 1px solid var(--line-soft); text-align: left; }
+  .row-btn:first-of-type { border-top: 0; }
+  .row-btn small { color: var(--muted); font-size: 12px; }
+  .row-btn.danger { color: var(--now); }
+  .foot { text-align: center; font-size: 11px; color: var(--faint); margin: 22px 0 6px; line-height: 1.6; }
+
+  /* ── Bottom nav ── */
+  nav.tabs { display: flex; border-top: 1px solid var(--line); background: var(--bg); padding-bottom: var(--safe-b); }
+  nav.tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 0 8px; color: var(--faint); font-size: 10.5px; letter-spacing: .4px; }
+  nav.tabs button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+  nav.tabs button.active { color: var(--ink); }
+
+  /* ── Sheets ── */
+  .scrim { position: fixed; inset: 0; background: rgba(47, 42, 38, .28); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--paper);
+    border-radius: 20px 20px 0 0; padding: 10px 20px calc(var(--safe-b) + 20px);
+    max-height: 88dvh; overflow-y: auto; transform: translateY(100%); transition: transform .26s cubic-bezier(.2,.8,.2,1);
+    -webkit-user-select: text; user-select: text;
+  }
+  .sheet.open { transform: none; }
+  .grabber { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 14px; }
+  .d-code { font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .d-title { font-family: var(--serif); font-weight: 600; font-size: 27px; line-height: 1.15; margin: 6px 0 16px; }
+  .d-row { display: grid; grid-template-columns: 82px 1fr; padding: 10px 0; border-top: 1px solid var(--line-soft); font-size: 14px; }
+  .d-row span:first-child { color: var(--muted); font-size: 12px; letter-spacing: .5px; padding-top: 1px; }
+  .d-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .btn { flex: 1; padding: 12px 10px; border-radius: 12px; border: 1px solid var(--line); font-size: 14px; background: var(--paper); }
+  .btn:active { background: var(--shade); }
+  .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn.danger { color: var(--now); }
+  .btn.wide { flex-basis: 100%; }
+
+  .form h2 { font-family: var(--serif); font-weight: 600; font-size: 26px; margin: 0 0 14px; }
+  .field { display: block; margin-bottom: 12px; }
+  .field > span { display: block; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); font-size: 16px; -webkit-appearance: none; appearance: none; min-height: 44px;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hidden { display: none !important; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--safe-b) + 76px); transform: translate(-50%, 20px);
+    background: var(--ink); color: var(--paper); border-radius: 22px; padding: 10px 8px 10px 16px;
+    font-size: 13px; display: flex; align-items: center; gap: 12px; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; z-index: 30; white-space: nowrap; max-width: calc(100vw - 32px);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { color: #D9CFA8; font-weight: 600; padding: 2px 8px; }
+  .toast button:empty { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <!-- Week view -->
+  <section class="view active" id="view-week">
+    <header class="topbar">
+      <button class="icon-btn" id="prev" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="range"><span class="range-text" id="range"></span><span class="range-sub" id="range-sub"></span></div>
+      <button class="icon-btn" id="next" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+      <div class="spacer"></div>
+      <button class="today-btn" id="today">Today</button>
+      <button class="icon-btn" id="add" aria-label="Add class"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    </header>
+    <div class="days-head" id="days-head"></div>
+    <div class="grid-scroll" id="grid-scroll">
+      <div class="grid" id="grid"><div class="times" id="times"></div><div class="cols" id="cols"></div></div>
+    </div>
+  </section>
+
+  <!-- List view -->
+  <section class="view" id="view-list">
+    <div class="page-head"><h1 class="page-title">Classes</h1><button class="text-btn" id="toggle-past">Show past</button></div>
+    <div class="scroll" id="list"></div>
+  </section>
+
+  <!-- Settings view -->
+  <section class="view" id="view-settings">
+    <div class="page-head"><h1 class="page-title">Settings</h1></div>
+    <div class="scroll" id="settings"></div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button class="active" data-view="week"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Schedule</button>
+  <button data-view="list"><svg viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.5" cy="6.5" r=".6"/><circle cx="4.5" cy="12" r=".6"/><circle cx="4.5" cy="17.5" r=".6"/></svg>List</button>
+  <button data-view="settings"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"><span id="toast-msg"></span><button id="toast-undo"></button></div>
+<input type="file" id="import-file" accept="application/json,.json" class="hidden">
+
+<script src="data.js"></script>
+<script>
+(() => {
+  const HOUR_H = 56, TOP = 12, START_H = 8;
+  const STORE_KEY = 'cours.state.v1';
+  const TYPES = ['Lecture', 'Tutorial', 'Computer practical', 'Seminar', 'Workshop', 'Exam', 'Other'];
+  const PALETTES = {
+    rose:  { bg: '#F1DFD7', bar: '#C1897A', ink: '#6B3F34' },
+    sage:  { bg: '#E0E6D4', bar: '#8E9F7C', ink: '#45543A' },
+    blue:  { bg: '#DAE2E9', bar: '#7D93A9', ink: '#3D5165' },
+    ochre: { bg: '#F2E6CB', bar: '#C6A35F', ink: '#6A5326' },
+    lilac: { bg: '#E5DEEA', bar: '#9C8BB0', ink: '#504262' },
+    clay:  { bg: '#EADBCF', bar: '#B48A6A', ink: '#5E4330' },
+  };
+  const EXTRA_COLORS = ['ochre', 'lilac', 'clay'];
+  const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const mondayOf = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return addDays(x, -((x.getDay() + 6) % 7)); };
+  const mins = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+  const isoWeek = d => {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+    return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
+  };
+  const dayName = d => DOW[(d.getDay() + 6) % 7];
+  const longDate = d => `${dayName(d)} ${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`;
+
+  // ── State: base data from data.js + the user's own changes on top ──
+  const BASE = window.BASE_EVENTS.map(([course, date, start, end, type, group, location]) => ({
+    id: [course, date, start, type, group].join('|'), course, date, start, end, type, group, location, base: true,
+  }));
+  const blankState = () => ({ hidden: [], removed: [], edits: {}, custom: [], customCourses: {} });
+  let state = (() => {
+    try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s) return Object.assign(blankState(), s); } catch (e) {}
+    return blankState();
+  })();
+  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} };
+
+  const courses = () => Object.assign({}, window.COURSES, state.customCourses);
+  const courseInfo = key => courses()[key] || { name: key, short: key, color: 'clay' };
+  const palette = key => PALETTES[courseInfo(key).color] || PALETTES.clay;
+  const colorVars = key => { const p = palette(key); return `--bg-c:${p.bg};--bar-c:${p.bar};--ink-c:${p.ink}`; };
+  const groupKey = e => `${e.course}|${e.type}|${e.group}`;
+
+  function allEvents() {
+    const removed = new Set(state.removed);
+    const out = BASE.filter(e => !removed.has(e.id)).map(e => Object.assign({}, e, state.edits[e.id]));
+    return out.concat(state.custom.map(e => Object.assign({}, e)));
+  }
+  function visibleEvents() {
+    const hidden = new Set(state.hidden);
+    return allEvents().filter(e => !e.group || !hidden.has(groupKey(e)));
+  }
+  const findEvent = id => allEvents().find(e => e.id === id);
+  const sortEvents = list => list.sort((a, b) => a.date.localeCompare(b.date) || mins(a.start) - mins(b.start));
+
+  const typeShort = e => {
+    const t = { 'Computer practical': 'Prac­tical' }[e.type] || e.type;
+    const g = e.group.match(/(\d+)/);
+    return e.group ? `${t} ${g ? 'G' + g[1] : e.group}` : t;
+  };
+  const typeLong = e => e.group ? `${e.type} · ${e.group}` : e.type;
+
+  // ── Week view ──
+  let weekStart = mondayOf(new Date());
+
+  function renderWeek() {
+    const days = [...Array(7)].map((_, i) => addDays(weekStart, i));
+    const todayStr = ymd(new Date());
+    const fmt = d => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+    $('#range').textContent = `${fmt(days[0])} ~ ${fmt(days[6])}`;
+    $('#range-sub').textContent = `Week ${isoWeek(weekStart)} · ${days[0].getFullYear()}`;
+
+    $('#days-head').innerHTML = `<div class="month">${MON[days[0].getMonth()]}</div>` + days.map((d, i) =>
+      `<div class="dh ${ymd(d) === todayStr ? 'is-today' : ''}"><span class="dn">${DOW[i]}</span><span class="dd">${fmt(d)}</span></div>`).join('');
+
+    const evs = visibleEvents();
+    const latest = evs.reduce((m, e) => Math.max(m, mins(e.end)), 0);
+    const endH = Math.min(24, Math.max(18, Math.ceil(latest / 60)));
+    const earliest = evs.reduce((m, e) => Math.min(m, mins(e.start)), START_H * 60);
+    const startH = Math.floor(earliest / 60);
+    const height = TOP + (endH - startH) * HOUR_H + 20;
+
+    let times = '', lines = '';
+    for (let h = startH; h <= endH; h++) {
+      const y = TOP + (h - startH) * HOUR_H;
+      times += `<span style="top:${y}px">${pad(h)}:00</span>`;
+      lines += `<div class="line" style="top:${y}px"></div>`;
+      if (h < endH) lines += `<div class="line half" style="top:${y + HOUR_H / 2}px"></div>`;
+    }
+    $('#times').innerHTML = times;
+    $('#times').style.height = height + 'px';
+
+    const cols = days.map((d, i) => {
+      const ds = ymd(d);
+      return `<div class="col ${i % 2 === 0 ? 'alt' : ''}" style="height:${height}px">${layoutDay(evs.filter(e => e.date === ds), startH)}${ds === todayStr ? nowLine(startH, endH) : ''}</div>`;
+    }).join('');
+    $('#cols').innerHTML = lines + cols;
+  }
+
+  function nowLine(startH, endH) {
+    const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+    if (m < startH * 60 || m > endH * 60) return '';
+    return `<div class="now" style="top:${TOP + (m - startH * 60) / 60 * HOUR_H}px"></div>`;
+  }
+
+  // Side-by-side layout for overlapping classes on the same day
+  function layoutDay(list, startH) {
+    list.sort((a, b) => mins(a.start) - mins(b.start) || mins(b.end) - mins(a.end));
+    let html = '', cluster = [], clusterEnd = -1;
+    const flush = () => {
+      const colEnds = [];
+      for (const e of cluster) {
+        let c = colEnds.findIndex(end => end <= mins(e.start));
+        if (c < 0) { c = colEnds.length; colEnds.push(0); }
+        colEnds[c] = mins(e.end); e._col = c;
+      }
+      for (const e of cluster) html += eventBlock(e, colEnds.length, startH);
+      cluster = [];
+    };
+    for (const e of list) {
+      if (cluster.length && mins(e.start) >= clusterEnd) { flush(); clusterEnd = -1; }
+      cluster.push(e); clusterEnd = Math.max(clusterEnd, mins(e.end));
+    }
+    if (cluster.length) flush();
+    return html;
+  }
+
+  function eventBlock(e, n, startH) {
+    const s = mins(e.start), en = mins(e.end);
+    const top = TOP + (s - startH * 60) / 60 * HOUR_H;
+    const h = Math.max((en - s) / 60 * HOUR_H - 2, 18);
+    const w = 100 / n;
+    return `<button class="ev ${e.type === 'Exam' ? 'exam' : ''}" data-id="${esc(e.id)}"
+      style="top:${top}px;height:${h}px;left:calc(${e._col * w}% + 1.5px);width:calc(${w}% - 3px);${colorVars(e.course)}">
+      <span class="ev-t">${esc(courseInfo(e.course).short)}</span>
+      <span class="ev-k">${esc(typeShort(e))}</span>
+      <span class="ev-r">${esc((e.location || '').split(' ')[0]).replace('.', '.<wbr>')}</span></button>`;
+  }
+
+  function goWeek(delta) { weekStart = addDays(weekStart, delta * 7); renderWeek(); }
+  $('#prev').onclick = () => goWeek(-1);
+  $('#next').onclick = () => goWeek(1);
+  $('#today').onclick = () => { weekStart = mondayOf(new Date()); renderWeek(); $('#grid-scroll').scrollTop = 0; };
+  $('#add').onclick = () => {
+    const today = new Date();
+    const inWeek = mondayOf(today).getTime() === weekStart.getTime();
+    openForm(null, ymd(inWeek ? today : weekStart));
+  };
+
+  // Swipe left/right to change week
+  let touch = null;
+  const gs = $('#grid-scroll');
+  gs.addEventListener('touchstart', ev => { const t = ev.touches[0]; touch = { x: t.clientX, y: t.clientY }; }, { passive: true });
+  gs.addEventListener('touchend', ev => {
+    if (!touch) return;
+    const t = ev.changedTouches[0], dx = t.clientX - touch.x, dy = t.clientY - touch.y;
+    touch = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) goWeek(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  // ── List view ──
+  let showPast = false;
+  function renderList() {
+    const cutoff = ymd(mondayOf(new Date()));
+    const evs = sortEvents(visibleEvents().filter(e => showPast || e.date >= cutoff));
+    $('#toggle-past').textContent = showPast ? 'Hide past' : 'Show past';
+    if (!evs.length) { $('#list').innerHTML = '<div class="empty">Nothing scheduled.</div>'; return; }
+    let html = '', curWeek = null, curDay = null;
+    for (const e of evs) {
+      const d = parse(e.date), ws = ymd(mondayOf(d));
+      if (ws !== curWeek) {
+        if (curWeek) html += '</div>';
+        const m = mondayOf(d), s = addDays(m, 6);
+        const range = m.getMonth() === s.getMonth()
+          ? `${m.getDate()} – ${s.getDate()} ${MON[s.getMonth()]} ${s.getFullYear()}`
+          : `${m.getDate()} ${MON[m.getMonth()]} – ${s.getDate()} ${MON[s.getMonth()]} ${s.getFullYear()}`;
+        html += `<div class="wk-group"><div class="wk-h"><span class="wk-n">Week ${isoWeek(d)}</span><span class="wk-d">${range}</span></div>`;
+        curWeek = ws; curDay = null;
+      }
+      const first = e.date !== curDay; curDay = e.date;
+      html += `<button class="li" data-id="${esc(e.id)}" style="${colorVars(e.course)}">
+        <div class="li-date">${first ? `<span>${dayName(d)}</span><b>${d.getDate()}</b><span>${MON[d.getMonth()]}</span>` : ''}</div>
+        <div class="li-body"><div class="li-title">${esc(courseInfo(e.course).name)}</div>
+        <div class="li-meta">${e.start}–${e.end} · ${esc(typeLong(e))}</div>
+        <div class="li-loc">${esc(e.location)}</div></div></button>`;
+    }
+    $('#list').innerHTML = html + '</div>';
+  }
+  $('#toggle-past').onclick = () => { showPast = !showPast; renderList(); };
+
+  // ── Settings view ──
+  function renderSettings() {
+    const groups = {};
+    for (const e of allEvents()) if (e.group) {
+      const k = `${e.course}|${e.type}`;
+      (groups[k] = groups[k] || new Set()).add(e.group);
+    }
+    const hidden = new Set(state.hidden);
+    const groupRows = Object.keys(groups).sort().map(k => {
+      const [course, type] = k.split('|');
+      const chips = [...groups[k]].sort().map(g => {
+        const gk = `${k}|${g}`;
+        return `<button class="chip ${hidden.has(gk) ? 'off' : ''}" data-gk="${esc(gk)}">${esc(g)}</button>`;
+      }).join('');
+      return `<div class="grp" style="${colorVars(course)}"><div class="grp-name"><span class="dot"></span>${esc(courseInfo(course).short)} · ${esc(type)}</div><div class="chips">${chips}</div></div>`;
+    }).join('');
+
+    const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+    $('#settings').innerHTML = `
+      ${standalone ? '' : `<div class="card"><h3>Install on your phone</h3>
+        <p>In Safari, tap the Share button, then <b>Add to Home Screen</b>. Cours will open full-screen and work offline.</p></div>`}
+      <div class="card"><h3>My groups</h3>
+        <p>Tap a group to hide or show it. Struck-through groups won't appear in your schedule.</p>
+        ${groupRows || '<p>No grouped classes.</p>'}</div>
+      <div class="card">
+        <button class="row-btn" id="s-add">Add a class <small>＋</small></button>
+        <button class="row-btn" id="s-restore">Restore removed classes <small>${state.removed.length}</small></button>
+      </div>
+      <div class="card">
+        <button class="row-btn" id="s-export">Export backup <small>.json</small></button>
+        <button class="row-btn" id="s-import">Import backup <small>.json</small></button>
+        <button class="row-btn danger" id="s-reset">Reset all my changes</button>
+      </div>
+      <div class="foot">Data from rooster.rug.nl · updated ${esc(window.DATA_UPDATED)}<br>Cours</div>`;
+
+    $('#settings').querySelectorAll('.chip').forEach(b => b.onclick = () => {
+      const gk = b.dataset.gk;
+      state.hidden = hidden.has(gk) ? state.hidden.filter(x => x !== gk) : state.hidden.concat(gk);
+      commit();
+    });
+    $('#s-add').onclick = () => openForm(null, ymd(new Date()));
+    $('#s-restore').onclick = () => {
+      if (!state.removed.length) return toast('Nothing to restore');
+      const snap = snapshot(); state.removed = []; commit(); toast('Classes restored', snap);
+    };
+    $('#s-export').onclick = exportBackup;
+    $('#s-import').onclick = () => $('#import-file').click();
+    $('#s-reset').onclick = () => {
+      if (!confirm('Reset all groups, edits and added classes?')) return;
+      const snap = snapshot(); state = blankState(); commit(); toast('All changes reset', snap);
+    };
+  }
+
+  function exportBackup() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `cours-backup-${ymd(new Date())}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  $('#import-file').onchange = async ev => {
+    const f = ev.target.files[0]; ev.target.value = '';
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (!Array.isArray(data.hidden) || !Array.isArray(data.custom)) throw new Error();
+      const snap = snapshot(); state = Object.assign(blankState(), data); commit(); toast('Backup imported', snap);
+    } catch (e) { toast('That file is not a Cours backup'); }
+  };
+
+  // ── Sheets: detail + form ──
+  const sheet = $('#sheet'), scrim = $('#scrim');
+  const openSheet = html => { sheet.innerHTML = '<div class="grabber"></div>' + html; sheet.scrollTop = 0; sheet.classList.add('open'); scrim.classList.add('open'); };
+  const closeSheet = () => { sheet.classList.remove('open'); scrim.classList.remove('open'); };
+  scrim.onclick = closeSheet;
+
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest('.ev, .li');
+    if (b) openDetail(b.dataset.id);
+  });
+
+  function openDetail(id) {
+    const e = findEvent(id); if (!e) return;
+    const c = courseInfo(e.course), d = parse(e.date);
+    const isCode = !!window.COURSES[e.course];
+    openSheet(`
+      <div style="${colorVars(e.course)}">
+        <div class="d-code"><span class="dot"></span>${isCode ? esc(e.course) : 'Own class'}</div>
+        <div class="d-title">${esc(c.name)}</div>
+        <div class="d-row"><span>Date</span><span>${longDate(d)} · Week ${isoWeek(d)}</span></div>
+        <div class="d-row"><span>Time</span><span>${e.start} – ${e.end}</span></div>
+        <div class="d-row"><span>Type</span><span>${esc(e.type)}</span></div>
+        ${e.group ? `<div class="d-row"><span>Group</span><span>${esc(e.group)}</span></div>` : ''}
+        <div class="d-row"><span>Location</span><span>${esc(e.location || '—')}</span></div>
+        <div class="d-actions">
+          <button class="btn" id="d-edit">Edit</button>
+          <button class="btn danger" id="d-del">Remove</button>
+        </div>
+        ${e.group ? `<div class="d-actions"><button class="btn wide" id="d-hide">Hide all ${esc(e.group)} sessions</button></div>` : ''}
+      </div>`);
+    $('#d-edit').onclick = () => openForm(e);
+    $('#d-del').onclick = () => {
+      const snap = snapshot();
+      if (e.base) { state.removed.push(e.id); delete state.edits[e.id]; }
+      else state.custom = state.custom.filter(x => x.id !== e.id);
+      commit(); closeSheet(); toast('Class removed', snap);
+    };
+    if (e.group) $('#d-hide').onclick = () => {
+      const snap = snapshot();
+      state.hidden.push(groupKey(e)); commit(); closeSheet(); toast(`${e.group} hidden`, snap);
+    };
+  }
+
+  function openForm(e, defaultDate) {
+    const editing = !!e;
+    e = e || { course: Object.keys(window.COURSES)[0], type: 'Lecture', group: '', date: defaultDate, start: '09:00', end: '11:00', location: '' };
+    const courseOpts = Object.entries(courses()).map(([k, c]) =>
+      `<option value="${esc(k)}" ${k === e.course ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    const typeOpts = TYPES.concat(TYPES.includes(e.type) ? [] : [e.type]).map(t =>
+      `<option ${t === e.type ? 'selected' : ''}>${esc(t)}</option>`).join('');
+    const repeatOpts = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14].map(n =>
+      `<option value="${n}">${n === 1 ? 'Once' : `Weekly, ${n} weeks`}</option>`).join('');
+    openSheet(`<form class="form" id="f">
+      <h2>${editing ? 'Edit class' : 'Add a class'}</h2>
+      <label class="field"><span>Course</span><select name="course">${courseOpts}<option value="__new">New course…</option></select></label>
+      <label class="field hidden" id="f-newwrap"><span>Course name</span><input name="newname" placeholder="e.g. Research Seminar"></label>
+      <div class="field-row">
+        <label class="field"><span>Type</span><select name="type">${typeOpts}</select></label>
+        <label class="field"><span>Group</span><input name="group" value="${esc(e.group)}" placeholder="optional"></label>
+      </div>
+      <label class="field"><span>Date</span><input type="date" name="date" value="${e.date}" required></label>
+      <div class="field-row">
+        <label class="field"><span>Start</span><input type="time" name="start" value="${e.start}" required></label>
+        <label class="field"><span>End</span><input type="time" name="end" value="${e.end}" required></label>
+      </div>
+      <label class="field"><span>Location</span><input name="location" value="${esc(e.location)}" placeholder="e.g. 5419.0128 Collegezaal"></label>
+      ${editing ? '' : `<label class="field"><span>Repeat</span><select name="repeat">${repeatOpts}</select></label>`}
+      <div class="d-actions"><button type="button" class="btn" id="f-cancel">Cancel</button><button class="btn primary">Save</button></div>
+    </form>`);
+    const f = $('#f');
+    f.course.onchange = () => $('#f-newwrap').classList.toggle('hidden', f.course.value !== '__new');
+    $('#f-cancel').onclick = closeSheet;
+    f.onsubmit = ev => {
+      ev.preventDefault();
+      const v = Object.fromEntries(new FormData(f));
+      if (mins(v.end) <= mins(v.start)) return toast('End time must be after start');
+      let course = v.course;
+      if (course === '__new') {
+        const name = v.newname.trim();
+        if (!name) return toast('Give the new course a name');
+        course = 'own-' + Date.now().toString(36);
+        state.customCourses[course] = { name, short: name, color: EXTRA_COLORS[Object.keys(state.customCourses).length % EXTRA_COLORS.length] };
+      }
+      const fields = { course, type: v.type, group: v.group.trim(), date: v.date, start: v.start, end: v.end, location: v.location.trim() };
+      const snap = snapshot();
+      if (editing && e.base) state.edits[e.id] = fields;
+      else if (editing) state.custom = state.custom.map(x => x.id === e.id ? Object.assign({}, x, fields) : x);
+      else {
+        const n = Number(v.repeat) || 1;
+        for (let i = 0; i < n; i++) {
+          state.custom.push(Object.assign({}, fields, {
+            id: 'u-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+            date: ymd(addDays(parse(v.date), i * 7)),
+          }));
+        }
+        weekStart = mondayOf(parse(v.date));
+      }
+      commit(); closeSheet(); toast(editing ? 'Class updated' : 'Class added', snap);
+    };
+  }
+
+  // ── Toast with undo ──
+  const snapshot = () => JSON.stringify(state);
+  let toastTimer;
+  function toast(msg, snap) {
+    $('#toast-msg').textContent = msg;
+    const undo = $('#toast-undo');
+    undo.textContent = snap ? 'Undo' : '';
+    undo.onclick = () => { state = JSON.parse(snap); commit(); $('#toast').classList.remove('show'); };
+    $('#toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 4000);
+  }
+
+  // ── Tabs ──
+  let view = 'week';
+  document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => {
+    view = b.dataset.view;
+    document.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('active', x === b));
+    document.querySelectorAll('.view').forEach(x => x.classList.toggle('active', x.id === 'view-' + view));
+    render();
+  });
+
+  function render() {
+    if (view === 'week') renderWeek();
+    else if (view === 'list') renderList();
+    else renderSettings();
+  }
+  function commit() { save(); render(); }
+
+  render();
+  setInterval(() => { if (view === 'week') renderWeek(); }, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
